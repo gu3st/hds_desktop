@@ -50,7 +50,6 @@ Future<void> run(List<String> arguments) async {
   print(
     yellowPen(
       'This desktop app supports one overlay connection and one watch connection at a time'
-      '\nOverlays must be running on this machine and connect to "localhost" to work'
       '\nFor more features such as simultaneous watch connections, please consider using HDS Cloud'
       '\nHeart rate data is and will always be free to use with HDS Cloud'
       '\nTo run the server on a different port, use the --port flag',
@@ -59,50 +58,24 @@ Future<void> run(List<String> arguments) async {
 
   final args = parser.parse(arguments);
   final port = int.parse(args['port']!);
-
+  
   final app = Router()
     ..put('/', handleHttpRequest)
     ..get(
       '/',
       (request) => shelf_ws.webSocketHandler(
-        (socket) => handleWebSocketConnect(request, socket),
+        (socket) => handleOverlayRequest(socket),
       )(request),
-    );
+    );   
 
   final server = await shelf_io.serve(app, '0.0.0.0', port);
   print(greenPen('Serving on port ${server.port}'));
-
+  
   printIpAddresses();
 }
 
 Future<void> checkForUpdates() async {
-  final response = await http.get(
-    Uri.parse(
-      'https://raw.githubusercontent.com/Rexios80/hds_desktop/master/bin/hds_desktop.dart',
-    ),
-  );
-
-  final remoteVersionString =
-      RegExp(r"final version = Version\.parse\('(.*)'\);")
-          .firstMatch(response.body)![1]!;
-  final remoteVersion = Version.parse(remoteVersionString);
-  if (remoteVersion > version) {
-    print(
-      magentaPen(
-        'There is a new version available: $remoteVersion'
-        '\nVisit https://github.com/Rexios80/hds_desktop/releases to get it',
-      ),
-    );
-  } else if (version > remoteVersion) {
-    print(
-      magentaPen(
-        'You are running an unreleased version: $version'
-        '\nPlease report any issues you encounter',
-      ),
-    );
-  } else {
-    print(greenPen('You are running the latest version: $version'));
-  }
+  
 }
 
 void printIpAddresses() async {
@@ -123,14 +96,6 @@ Future<Response> handleHttpRequest(Request request) async {
   handleData(data);
 
   return Response.ok(null);
-}
-
-void handleWebSocketConnect(Request request, WebSocketChannel socket) {
-  if (request.requestedUri.host == 'localhost') {
-    handleOverlayConnection(socket);
-  } else {
-    print(redPen('Rejecting connection from ${request.requestedUri.host}'));
-  }
 }
 
 void handleOverlayConnection(WebSocketChannel socket) async {
